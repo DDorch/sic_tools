@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Visualisation 3D de la géométrie d'un canal modélisé dans SIC²</title>
+		<style>
+			body { margin: 0; overflow: hidden;}
+			canvas { width: 100%; height: 100% }
+		</style>
+	</head>
+	<body>
+		
+		<div id="container">
+			<h1>Visualisation 3D de la géométrie d'un canal modélisé dans SIC²</h1>
+			<p>Pour visualiser une géométrie en 3 dimensions, générer un fichier contenant les coordonnées des profils des sections à l'aide de <a href="http://sic.g-eau.net/Exporter-les-profils-de-toutes-les">l'outil d'export des profils de section au format x,y,z</a>.</p>
+			<p>Importer ce fichier à l'aide du bouton ci-contre : <input type="file" id="fileinput" /></p>
+			<p>Facteur de réduction de la longueur du canal : <input type="text" value="10" id="x_factor"/></p>
+			<p> <button type="button" id="button_start" onclick="init();animate();">Lancer la visualisation 3D</button></p>
+			<p>Pour naviguer dans la vue 3D :</p>
+			<ul>
+				<li>Utiliser le pointeur de souris pour diriger le regard</li>
+				<li>Clic-gauche ou flèche haut pour avancer</li>
+				<li>Clic-droit ou flèche bas pour reculer</li>
+				<li>Flèche gauche pour se décaler sur la gauche</li>
+				<li>Flèche droite pour se décaler sur la droite</li>
+				<li>Touche R pour monter</li>
+				<li>Touche F pour descendre</li>
+			</ul>
+			<img src="canal_visu3d.png"/>
+		</div>
+		<script src="js/three.min.js"></script>
+		<script src="js/FirstPersonControls.js"></script>
+		<script src="js/ImprovedNoise.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/stats.min.js"></script>
+		<script>
+		
+		if ( ! Detector.webgl ) {
+
+				Detector.addGetWebGLMessage();
+				document.getElementById( 'container' ).innerHTML = "";
+
+			}
+			var txtContent;
+			var container, stats;
+
+			var camera, controls, scene, renderer;
+
+			var mesh;
+
+			var worldWidth = 128, worldDepth = 128;
+			
+
+			var clock = new THREE.Clock();
+
+			function readSingleFile(evt) {
+				//Retrieve the first (and only!) File from the FileList object
+				var f = evt.target.files[0]; 
+
+				if (f) {
+					var r = new FileReader();
+					r.onload = function(e) { 
+						txtContent = e.target.result;
+					}
+					r.readAsText(f);
+					
+				} else { 
+					alert("Failed to load file");
+				}
+			}
+			
+			document.getElementById('fileinput').addEventListener('change', readSingleFile, false);
+			
+
+			function read3DSicTxt(allText) {
+				var allTextLines = [];
+				var xyz = [];
+				var xyz2 = []; // To detect new section
+				var mat_section = new THREE.LineBasicMaterial( { color: 0xCC0000, linewidth: 3 } ); // linewidth is not yet supported http://stackoverflow.com/questions/11638883/thickness-of-lines-using-three-linebasicmaterial
+				var mat_grass = new THREE.MeshBasicMaterial( {color: 0x009900, side: THREE.DoubleSide, transparent: true, opacity: 0.5} );
+				//var mat_grass = new THREE.MeshPhongMaterial( {color: 0x009900, side: THREE.DoubleSide} );
+				var mat_canal = new THREE.MeshBasicMaterial( {color: 0x999999, side: THREE.DoubleSide} );
+				//var mat_canal = new THREE.MeshDepthMaterial({color: 0x999999, side: THREE.DoubleSide});
+				var bInSn = false;
+				var sections = [];
+				var ymin = 1E12,ymax = -1E12;
+				var nbSn; // Number of sections
+				var zmax = -1E12;
+				var xmin = 1E12;
+				var x_ratio = parseFloat(document.getElementById('x_factor').value);
+				if(x_ratio <=0) x_ratio = 1;
+				
+				// Makes sure it's found the file.
+				allTextLines = allText.split(/\r\n|\n/);
+				
+				for(i=0; i< allTextLines.length; i++) {
+					if(allTextLines[i].substr(0,1)!="%" && allTextLines[i].trim()!="") {
+						xyz = allTextLines[i].split(/\t/);
+						xmin = Math.min(xmin,xyz[0]/x_ratio);
+						ymin = Math.min(ymin,xyz[1]);
+						ymax = Math.max(ymax,xyz[1]);
+						zmax = Math.max(zmax,xyz[2]);
+						if(!bInSn) {
+							bInSn = true;
+							nbSn = sections.push(new THREE.Geometry());
+						}
+						sections[nbSn-1].vertices.push(new THREE.Vector3( xyz[0]/x_ratio, xyz[2], xyz[1] ));
+					} else {
+						bInSn = false;
+					}
+				}
+				// Width of the grass
+				var ygGrass = ymin - 10*(ymax-ymin);
+				var ydGrass = ymax + 10*(ymax-ymin);
+				var v3i,v3j; // Vector 3 for previous and current section
+				var disti,distj,disttot,iSn,ixi,ixj; // Distance between geometry points
+				
+				for(i=0; i<sections.length; i++) {
+					
+					// Centering section considering the bottom
+					var fonds=[]; // y positions of bottom points
+					var zmax_sect=-1E12;
+					var zmin_sect = 1E12;
+					for(j=0; j<sections[i].vertices.length; j++) {
+						zmax_sect = Math.max(zmax_sect,sections[i].vertices[j].y);
+						zmin_sect = Math.min(zmin_sect,sections[i].vertices[j].y);
+					}
+					for(j=0; j<sections[i].vertices.length; j++) {
+						// Looking for bottom positions
+						if(sections[i].vertices[j].y-zmin_sect < (zmax_sect-zmin_sect)*0.1) {
+							// Le point se situe dans le 10% bas des altitudes de la section
+							fonds.push(parseFloat(sections[i].vertices[j].z)); // Profil abscissa
+						}
+					}
+					var yc=0; // Center position
+					for(j=0; j<fonds.length; j++) {
+						yc += fonds[j];
+					}
+					yc = yc/fonds.length;
+					// Centering the profil points
+					for(j=0; j<sections[i].vertices.length; j++) {
+						sections[i].vertices[j].z -= yc;
+					}
+					
+					// Drawing section
+					scene.add(new THREE.Line(sections[i],mat_section));
+					
+					// Distance between geometry points
+					disti = [0];
+					disttot = 0;
+					for(j=1; j<sections[i].vertices.length; j++) {
+						disti.push(sections[i].vertices[j].distanceTo(sections[i].vertices[j-1]));
+						disttot += disti[disti.length-1];
+						disti[disti.length-1] = disttot;
+					}
+					// Normalisation
+					for(j=1; j<disti.length; j++) {
+						disti[j] = disti[j] / disttot;
+					}
+					
+					if(i>0) {
+						// Drawing left bank
+						v3i = sections[i-1].vertices[0];
+						v3j = sections[i].vertices[0];
+						drawTriangle([v3i,v3j, 
+								new THREE.Vector3(v3i.x,v3i.y,ygGrass)],mat_grass);
+						drawTriangle([v3j,
+								new THREE.Vector3(v3i.x,v3i.y,ygGrass), 
+								new THREE.Vector3(v3j.x,v3j.y,ygGrass)],mat_grass);
+						// Drawing right bank
+						v3i = sections[i-1].vertices[sections[i-1].vertices.length-1];
+						v3j = sections[i].vertices[sections[i].vertices.length-1];
+						drawTriangle([v3i,v3j, 
+								new THREE.Vector3(v3i.x,v3i.y,ydGrass)],mat_grass);
+						drawTriangle([v3j,
+								new THREE.Vector3(v3i.x,v3i.y,ydGrass), 
+								new THREE.Vector3(v3j.x,v3j.y,ydGrass)],mat_grass);
+						// Drawing canal
+						ixi = 0;
+						ixj = 0;
+						while(ixi < disti.length-1 || ixj < distj.length-1) {
+							if(ixi == disti.length-1) {
+								iSn = 2;
+							} else if(ixj == distj.length-1) {
+								iSn = 1;
+							} else if(disti[ixi+1] < distj[ixj+1]) {
+								iSn = 1;
+							} else {
+								iSn = 2;
+							}
+							if(iSn==1) {
+								drawTriangle([
+									sections[i].vertices[ixi],
+									sections[i].vertices[ixi+1],
+									sections[i-1].vertices[Math.min(ixj,distj.length-1)]],
+									mat_canal);
+								ixi += 1;
+							} else {
+								drawTriangle([
+									sections[i-1].vertices[ixj],
+									sections[i-1].vertices[ixj+1],
+									sections[i].vertices[Math.min(ixi,disti.length-1)]],
+									mat_canal);
+								ixj += 1;
+							}
+						}
+					}
+					distj = disti.slice();
+				}
+				return {x:xmin, y:ymin+(ymax-ymin)/2,z:zmax}; // Camera's position
+			}
+			
+			function drawTriangle(verticies,material) {
+				var triangleGeometry = new THREE.Geometry(); 
+				triangleGeometry.vertices = verticies; 
+				triangleGeometry.faces.push(new THREE.Face3(0, 1, 2)); 
+				var triangleMesh = new THREE.Mesh(triangleGeometry, material);
+				scene.add(triangleMesh);
+			}
+			
+			function init() {
+			
+				scene = new THREE.Scene();
+				var xyz = read3DSicTxt(txtContent);
+				
+				container = document.getElementById( 'container' );
+
+				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
+				camera.position.x = xyz.x - 10;
+				camera.position.z = xyz.y;
+				camera.position.y = xyz.z + 10;
+				camera.lookAt([xyz.x,xyz.z,xyz.y]);
+
+				controls = new THREE.FirstPersonControls( camera );
+
+				controls.movementSpeed = 100;
+				controls.lookSpeed = 0.125;
+				controls.lookVertical = true;
+				controls.activeLook = true;
+				this.constrainVertical = true;
+
+				var ambientLight = new THREE.AmbientLight( 0xcccccc );
+				scene.add( ambientLight );
+
+				var directionalLight = new THREE.DirectionalLight( 0xffffff, 2 );
+				directionalLight.position.set( 1, 1, 0.5 ).normalize();
+				scene.add( directionalLight );
+
+				renderer = new THREE.WebGLRenderer({antialias: true});
+				renderer.setClearColor( 0xbfd1e5 );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				container.innerHTML = "";
+
+				container.appendChild( renderer.domElement );
+
+				/*stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				container.appendChild( stats.domElement );*/
+
+				window.addEventListener( 'resize', onWindowResize, false );
+				
+			}
+			
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				controls.handleResize();
+
+			}
+
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				render();
+				//stats.update();
+
+			}
+
+			function render() {
+
+				controls.update( clock.getDelta() );
+				renderer.render( scene, camera );
+
+			}
+
+			
+		</script>
+	</body>
+</html>
