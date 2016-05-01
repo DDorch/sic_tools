@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset=utf-8>
+        <title>Generate section profiles from xyz points</title>
+        <style>
+            body { margin: 0; overflow: hidden;background-color: #d7e9fa;font: 1em sans-serif;}
+            canvas { width: 100%; height: 100% }
+            #container h1, .button, #help{
+                text-align: center;
+            }
+            form {
+                /* Just to center the form on the page */
+                margin: 0 auto;
+                width: 400px;
+                /* To see the outline of the form */
+                padding: 1em;
+                border: 1px solid #CCC;
+                border-radius: 1em;
+                background-color: aliceblue;
+            }
+            div {
+                margin-top: 1em;
+                margin-bottom: 1em;
+            }
+            input, textarea, label, button, #reach_list {
+                /* To make sure that all text fields have the same font settings
+                   By default, textareas have a monospace font */
+                font: 1em sans-serif;
+            }
+            label, button {
+                font-weight: bold;
+            }
+            input, textarea {
+                /* To give the same size to all text field */
+                width: 100%;
+                -moz-box-sizing: border-box;
+                box-sizing: border-box;
+
+                /* To harmonize the look & feel of text field border */
+                border: 1px solid #999;
+            }
+            textarea {
+                /* To properly align multiline text fields with their labels */
+                vertical-align: top;
+
+                /* To give enough room to type some text */
+                height: 10em;
+                width: 100%;
+
+                /* To allow users to resize any textarea vertically
+                   It does not work on all browsers */
+                resize: vertical;
+            }
+
+            button {
+                /* This extra margin represent roughly the same space as the space
+                   between the labels and their text fields */
+                margin-left: .5em;
+                width: 60%;
+            }
+            #div_export {
+                display: none;
+            }
+            #canvas {
+                width: 1024px;
+                height: 500px;
+            }
+        </style>
+        <script type="text/javascript" src="js/delaunay.js"></script>
+    </head>
+    <body>
+
+        <div id="container">
+            <h1>Generate section profiles from xyz points</h1>
+            <form>
+            <div>
+                <label for="fileinput">File to import :</label>
+                <input type="file" id="fileinput" />
+            </div>
+            <div class="button">
+                <button type="button" id="button_start" onclick="triangulation();">Generate Delaunay triangulation</button>
+            </div>
+            </form>
+            <div id="help">For help see: <a href="http://sic.g-eau.net/import-sections-and-cross-profiles?lang=en">How to import sections and cross profiles in text format in SIC²</a></div>
+        </div>
+        <canvas id="canvas" width="1024" height="500">
+        </canvas>
+        <div id="div_export">
+            <label for="myText">ASCII geometry text to import in SIC² (copy and paste it to EdiSIC):<label/>
+            <textarea id="myText"></textarea>
+        </div>
+        <div id="footer">
+
+        </div>
+
+<script>
+
+    var boundaries;
+    var vertices;
+    var triangles;
+
+    function readSingleFile(evt) {
+        //Retrieve the first (and only!) File from the FileList object
+        var f = evt.target.files[0];
+
+        if (f) {
+            var r = new FileReader();
+            r.onload = function(e) {
+                txtContent = e.target.result;
+            }
+            r.readAsText(f);
+
+        } else {
+            alert("Failed to load file");
+        }
+    }
+
+    document.getElementById('fileinput').addEventListener('change', readSingleFile, false);
+
+    /*
+     * Compute the segments from Delaunay triangulation outputs
+     */
+    function triangles2Segments(triangles) {
+        var s = [];
+        for(var i=triangles.length; i;) {
+            i--;s.push([triangles[i],triangles[i-1]]);
+            i--;s.push([triangles[i],triangles[i-1]]);
+            i--;s.push([triangles[i],triangles[i+2]]);
+        }
+        var s2 = [];
+        for(var i=0; i < s.length; i++) {
+            var bDuplicate = false;
+            for(var j=0; j< s2.length; j++) {
+                if((s[i][0] == s2[j][0] & s[i][1] == s2[j][1]) | (s[i][1] == s2[j][0] & s[i][0] == s2[j][1])) {
+                    bDuplicate = true;
+                    break;
+                }
+            }
+            if(!bDuplicate) {
+                s2.push(s[i]);
+            }
+        }
+        return s2;
+    }
+
+    /**
+     * Parse the imported file and print on the screen the generated ASCII file ready to be imported in SIC²
+     * @param sReach Name of the reach to import
+     * @author David Dorchies (david.dorchies at irstea.fr)
+     * @date 18/04/2016
+     */
+    function triangulation() {
+        var allTextLines = txtContent.split(/\r\n|\n/);
+        boundaries = [{'min':Infinity,'max':-Infinity},{'min':Infinity,'max':-Infinity},{'min':Infinity,'max':-Infinity}];
+        vertices = [];
+
+        for(i=0; i< allTextLines.length; i++) {
+            if(allTextLines[i].substr(0,1)!="%" && allTextLines[i].trim()!="") {
+                var xyz = allTextLines[i].split(/\t|;|,/);
+                for(j=0; j<3; j++) {
+                    xyz[j] = parseFloat(xyz[j]);
+                    boundaries[j].min = Math.min(boundaries[j].min,xyz[j]);
+                    boundaries[j].max = Math.max(boundaries[j].max,xyz[j]);
+                }
+                vertices.push(xyz);
+            }
+        }
+        console.time("triangulate");
+        triangles = Delaunay.triangulate(vertices);
+        console.timeEnd("triangulate");
+
+        console.time("draw_triangulation");
+        draw_triangulation();
+        console.timeEnd("draw_triangulation");
+
+        alert("Draw the canal's route by clicking on the screen\nUse double-click for ending the route.");
+
+        document.getElementById("canvas").onclick = function(e) {
+            e = e ? e : window.event;
+            var rect = this.getBoundingClientRect();
+            route.addAt([e.clientX - rect.left, e.clientY - rect.top]);
+        }
+
+        document.getElementById("canvas").ondblclick = function(e) {
+            route.setSections();
+        }
+    }
+
+
+    /**
+     * Compute coordinates of one point in the canvas from boundaries of points to be drawn
+     * @param canvas canvas object with properties width and height
+     * @param boundaries array of dim 2 (1 for each 2 axes x and y) with properties min and max
+     * @param xy array of dim 2 with respectively coordinates x and y of the point to compute
+     * @author David Dorchies
+     * @date 20/04/2016
+     */
+    function coords2Canvas(canvas, boundaries, xy) {
+        var axeLength = [canvas.width, canvas.height];
+        var xy2 = Array(2);
+        for(var i=0; i<2; i++) {
+            xy2[i] = (xy[i] - boundaries[i].min) * axeLength[i] / (boundaries[i].max - boundaries[i].min);
+        }
+        // bottom and top are inverted for the canvas
+        xy2[1] = axeLength[1] - xy2[1];
+        return xy2;
+    }
+
+    function draw_triangulation() {
+        document.getElementById("container").style = "display:none;";
+        var canvas = document.getElementById("canvas"),
+            ctx = canvas.getContext("2d");
+            ctx.lineWidth = 0.3;
+            ctx.strokeStyle = "#aaaaaa";
+
+        var v2 = Array(vertices.length);
+        for(var i = 0; i < vertices.length; i++) {
+            v2[i] = coords2Canvas(canvas, boundaries, vertices[i]);
+        }
+
+        for(var i = triangles.length; i; ) {
+            var xy;
+            ctx.beginPath();
+            --i; ctx.moveTo(v2[triangles[i]][0], v2[triangles[i]][1]);
+            --i; ctx.lineTo(v2[triangles[i]][0], v2[triangles[i]][1]);
+            --i; ctx.lineTo(v2[triangles[i]][0], v2[triangles[i]][1]);
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        for(var i=0; i<vertices.length; i++) {
+            // Draw point
+            ctx.beginPath();
+            ctx.arc(v2[i][0], v2[i][1], 2, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.fillStyle = "#000000";
+            ctx.fill();
+        }
+    }
+
+    function Route() {
+        /**
+         * List of points part of the route with properties:
+         * - xy: coordinates of the point (geographic reference)
+         * - pK: chainage of the point
+         */
+        this.vertices = [];
+        /// Space step for sections
+        this.spaceX = 0;
+        /// Section widths
+        this.sectionWidth = 100;
+        /**
+         * Sections list with properties:
+         * - pK : Chainage of the section
+         * - Lxy : Coordinates of the left bank
+         * - Rxy : Coordinates of the right bank
+         */
+        this.sections = [];
+        /// Total length of the route
+        this.routeLength = 0;
+
+        this.getDist = function(p1,p2) {
+            return Math.sqrt(Math.pow(p1[0]-p2[0],2)+Math.pow(p1[1]-p2[1],2));
+        }
+
+        this.addAt = function(xy) {
+            var canvas = document.getElementById('canvas');
+            var xy2 = Array(2);
+            var axeLength = [canvas.scrollWidth , canvas.scrollHeight];
+            xy[1] = axeLength[1] - xy[1]; // bottom and top are inverted in the canvas
+            for(var i=0; i<2; i++) {
+                xy2[i] = (xy[i]) / axeLength[i] * (boundaries[i].max - boundaries[i].min) + boundaries[i].min;
+            }
+            var pK = 0;
+            if(this.vertices.length > 0) {
+                pK = this.vertices[this.vertices.length-1].pK;
+                pK += this.getDist(this.vertices[this.vertices.length-1].xy,xy2);
+            }
+
+            this.vertices.push({'xy':xy2,'pK':pK});
+            this.render();
+        };
+
+        this.getTheta = function(p1,p2) {
+            return Math.atan2(p2[1]-p1[1],p2[0]-p1[0]);
+        }
+
+        this.render = function() {
+            console.time('render');
+            var canvas = document.getElementById('canvas');
+            if (!canvas.getContext)
+            return;
+
+            var ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, Number(canvas.width), Number(canvas.height));
+
+            draw_triangulation();
+
+            // Draw route
+            var vertex_last = [];
+            for(var i=0; i<this.vertices.length; i++) {
+                var vertex = coords2Canvas(canvas,boundaries,this.vertices[i].xy);
+
+                // Draw edge
+                if(i > 0) {
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(vertex_last[0], vertex_last[1]);
+                    ctx.lineTo(vertex[0], vertex[1]);
+                    ctx.closePath();
+                    ctx.strokeStyle = "#0000ff";
+                    ctx.stroke();
+                }
+
+                // Draw point
+                ctx.beginPath();
+                ctx.arc(vertex[0], vertex[1], 3, 0, Math.PI * 2, true);
+                ctx.closePath();
+                ctx.fillStyle = "#ff0000";
+                ctx.fill();
+
+                ctx.font = "12px Sans";
+                ctx.fillStyle = "black";
+                ctx.fillText("pK="+this.vertices[i].pK.toFixed(3),vertex[0]+5, vertex[1]);
+
+                vertex_last[0] = vertex[0];
+                vertex_last[1] = vertex[1];
+            }
+
+            // Draw sections
+            for(var i=0; i<this.sections.length; i++) {
+                var sn = this.sections[i];
+                var xy;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                xy = coords2Canvas(canvas,boundaries,sn.Lxy)
+                ctx.moveTo(xy[0], xy[1]);
+                xy = coords2Canvas(canvas,boundaries,sn.Rxy)
+                ctx.lineTo(xy[0], xy[1]);
+                ctx.closePath();
+                ctx.strokeStyle = "#ff0000";
+                ctx.stroke();
+            }
+            console.timeEnd('render');
+        }
+
+
+        this.getXYfromPK = function(xy,theta,pK) {
+            return [xy[0]+pK*Math.cos(theta),xy[1]+pK*Math.sin(theta)];
+        }
+
+        this.setSections = function() {
+            this.routeLength = this.vertices[this.vertices.length-1].pK;
+            if(this.routeLength < 1000) {
+                this.spaceX = this.routeLength / 20;
+            } else {
+                this.spaceX = 100;
+            }
+            this.sectionWidth = this.spaceX*5;
+            this.computeSections();
+        }
+
+        this.computeSections = function() {
+            var pK = 0;
+            var iSegment = 0;
+            while(pK <= this.routeLength) {
+                // Compute coords of section's center
+                var theta = this.getTheta(this.vertices[iSegment].xy,this.vertices[iSegment+1].xy);
+                var xy = this.getXYfromPK(this.vertices[iSegment].xy,theta,pK-this.vertices[iSegment].pK);
+                // Compute section's edges coords
+                this.sections.push({"pK":pK,
+                    "Lxy": this.getXYfromPK(xy,theta+Math.PI/2,this.sectionWidth/2),
+                    "Rxy": this.getXYfromPK(xy,theta-Math.PI/2,this.sectionWidth/2)
+                });
+                // Set chainage of the next section
+                if(pK==this.routeLength) break;
+                pK += this.spaceX;
+                pK = Math.min(pK,this.routeLength);
+                while(iSegment < this.vertices.length -1 & pK > this.vertices[iSegment+1].pK) {
+                    iSegment++;
+                }
+            }
+            this.render();
+            this.computeProfils();
+            sic_ascii(this.sections);
+        }
+
+        this.getLineEquation = function(p1,p2) {
+            var ab = Array(2);
+            ab[0] = (p1[1]-p2[1])/(p1[0]-p2[0]);
+            if(p1[0]!=0) {
+                ab[1] = p1[1] - (ab[0]*p1[0]);
+            } else if(sections[i].Rxy[0]!=0) {
+                ab[1] = p2[1] - (ab[0]*p2[0]);
+            } else {
+                alert("Impossible to compute section profil");
+            }
+            return ab;
+        }
+
+        this.doesLineIntersect = function(ab, p1, p2) {
+            var test =  [ab[0]*p1[0] - p1[1] + ab[1], ab[0]*p2[0] - p2[1] + ab[1]];
+            test[0] = test[0] > 0 ? 1 : 0;
+            test[1] = test[1] > 0 ? 1 : 0;
+            if(test[0]!=test[1]) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+
+        /*
+         * Interpolation of altitude for a 2D point located between two 3D points
+         * @param s Array of two points containing 3D vertex
+         * @param pInt 2D vertex of the point located on the same line
+         */
+        this.getProfilePointZ = function(s,pInt) {
+            var dTot = this.getDist(vertices[s[0]],vertices[s[1]]);
+            var dPart = this.getDist(vertices[s[0]],pInt);
+            return vertices[s[0]][2]+(vertices[s[1]][2]-vertices[s[0]][2])*dPart/dTot;
+        }
+
+        this.renderSegments = function (s) {
+            this.render();
+            var canvas = document.getElementById('canvas');
+            if (!canvas.getContext)
+            return;
+            var ctx = canvas.getContext('2d');
+            var xy;
+            for(var i=0; i<s.length; i++) {
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                xy = coords2Canvas(canvas,boundaries,vertices[s[i][0]])
+                ctx.moveTo(xy[0], xy[1]);
+                xy = coords2Canvas(canvas,boundaries,vertices[s[i][1]])
+                ctx.lineTo(xy[0], xy[1]);
+                ctx.closePath();
+                ctx.strokeStyle = "#00ff00";
+                ctx.stroke();
+            }
+        }
+
+        this.computeProfils = function() {
+            var segments = triangles2Segments(triangles);
+			//var intervalRender = window.setInterval(this.renderSegments(s);, 500);
+            for(var i=0; i< this.sections.length; i++) {
+                var section = this.sections[i];
+                // Line equation of the section
+                section.ab = this.getLineEquation(section.Lxy,section.Rxy);
+                // Selecting segments intersecting the section
+                var s = []; // the selected segments
+                for(var j=0; j<segments.length; j++) {
+                    var s_ab = this.getLineEquation(vertices[segments[j][0]],vertices[segments[j][1]]);
+                    if(this.doesLineIntersect(section.ab,vertices[segments[j][0]],vertices[segments[j][1]]) &
+                        this.doesLineIntersect(s_ab,section.Lxy,section.Rxy)) {
+                        // Intersection of 4 points checked
+                        s.push(segments[j]);
+                        //this.renderSegments(s);
+                    }
+                }
+
+                //alert("section "+i);
+                // Compute profile
+                this.sections[i].profil = []; // Array for storing abscissa-elevation profile
+                var x1 = section.Lxy[0];
+                var y1 = section.Lxy[1];
+                var x2 = section.Rxy[0];
+                var y2 = section.Rxy[1];
+                var px = Array(s.length);
+                var pz = Array(s.length);
+                for(var j=0; j<s.length; j++) {
+                    // Intersection coordinates
+                    // Source https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line
+                    var x3 = vertices[s[j][0]][0];
+                    var y3 = vertices[s[j][0]][1];
+                    var x4 = vertices[s[j][1]][0];
+                    var y4 = vertices[s[j][1]][1];
+                    var pInt = [((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))/((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)),
+                                ((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4))/((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4))];
+                    // Projection in section plan
+                    px[j] = this.getDist(section.Lxy,pInt); // For x : starting from left bank at x=0
+                    pz[j] = this.getProfilePointZ(s[j],pInt);
+                }
+                // Sorting profil by abscissa
+                var iProfs = getIndexesOfSortedArray(px);
+                this.sections[i].profil = Array(iProfs.length);
+                for(var j=0; j<s.length; j++) {
+                    this.sections[i].profil[j] = [px[iProfs[j]],pz[iProfs[j]]];
+                }
+            }
+
+        }
+    }
+
+    var route = new Route();
+
+    // http://stackoverflow.com/questions/3730510/javascript-sort-array-and-return-an-array-of-indicies-that-indicates-the-positi
+    function getIndexesOfSortedArray(toSort) {
+        var tS2 = Array(toSort.length);
+        for (var i = 0; i < toSort.length; i++) {
+            tS2[i] = [toSort[i], i];
+        }
+        tS2.sort(function(left, right) {
+            return left[0] < right[0] ? -1 : 1;
+        });
+        var sortIndexes = [];
+        for (var j = 0; j < toSort.length; j++) {
+            sortIndexes.push(tS2[j][1]);
+        }
+        return sortIndexes;
+    }
+
+    function sic_ascii(scts) {
+        var s = "";
+        for(i=0; i<scts.length; i++) {
+            s += "x="+scts[i].pK+"$"+scts[i].pK+"\n";
+            for(j=0; j<scts[i].profil.length; j++) {
+                s += scts[i].profil[j][0] + "\t" + scts[i].profil[j][1] + "\n";
+            }
+        }
+        document.getElementById("div_export").style = "display:block;";
+        document.getElementById("myText").value = s;
+        document.getElementById("myText").select();
+    }
+</script>
+    </body>
+</html>
