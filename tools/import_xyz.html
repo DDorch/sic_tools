@@ -79,7 +79,7 @@
                 <input type="file" id="fileinput" />
             </div>
             <div class="button">
-                <button type="button" id="button_start" onclick="triangulation();">Generate Delaunay triangulation</button>
+				<button type="button" id="button_start" onclick="canal.triangulation();">Generate Delaunay triangulation</button>
             </div>
             </form>
             <div id="help">For help see: <a href="http://sic.g-eau.net/import-sections-and-cross-profiles?lang=en">How to import sections and cross profiles in text format in SIC²</a></div>
@@ -95,10 +95,7 @@
         </div>
 
 <script>
-
-    var boundaries;
-    var vertices;
-    var triangles;
+	var txtContent;
 
     function readSingleFile(evt) {
         //Retrieve the first (and only!) File from the FileList object
@@ -110,83 +107,12 @@
                 txtContent = e.target.result;
             }
             r.readAsText(f);
-
         } else {
             alert("Failed to load file");
         }
     }
 
     document.getElementById('fileinput').addEventListener('change', readSingleFile, false);
-
-    /*
-     * Compute the segments from Delaunay triangulation outputs
-     */
-    function triangles2Segments(triangles) {
-        var s = [];
-        for(var i=triangles.length; i;) {
-            i--;s.push([triangles[i],triangles[i-1]]);
-            i--;s.push([triangles[i],triangles[i-1]]);
-            i--;s.push([triangles[i],triangles[i+2]]);
-        }
-        var s2 = [];
-        for(var i=0; i < s.length; i++) {
-            var bDuplicate = false;
-            for(var j=0; j< s2.length; j++) {
-                if((s[i][0] == s2[j][0] & s[i][1] == s2[j][1]) | (s[i][1] == s2[j][0] & s[i][0] == s2[j][1])) {
-                    bDuplicate = true;
-                    break;
-                }
-            }
-            if(!bDuplicate) {
-                s2.push(s[i]);
-            }
-        }
-        return s2;
-    }
-
-    /**
-     * Parse the imported file and print on the screen the generated ASCII file ready to be imported in SIC²
-     * @param sReach Name of the reach to import
-     * @author David Dorchies (david.dorchies at irstea.fr)
-     * @date 18/04/2016
-     */
-    function triangulation() {
-        var allTextLines = txtContent.split(/\r\n|\n/);
-        boundaries = [{'min':Infinity,'max':-Infinity},{'min':Infinity,'max':-Infinity},{'min':Infinity,'max':-Infinity}];
-        vertices = [];
-
-        for(i=0; i< allTextLines.length; i++) {
-            if(allTextLines[i].substr(0,1)!="%" && allTextLines[i].trim()!="") {
-                var xyz = allTextLines[i].split(/\t|;|,/);
-                for(j=0; j<3; j++) {
-                    xyz[j] = parseFloat(xyz[j]);
-                    boundaries[j].min = Math.min(boundaries[j].min,xyz[j]);
-                    boundaries[j].max = Math.max(boundaries[j].max,xyz[j]);
-                }
-                vertices.push(xyz);
-            }
-        }
-        console.time("triangulate");
-        triangles = Delaunay.triangulate(vertices);
-        console.timeEnd("triangulate");
-
-        console.time("draw_triangulation");
-        draw_triangulation();
-        console.timeEnd("draw_triangulation");
-
-        alert("Draw the canal's route by clicking on the screen\nUse double-click for ending the route.");
-
-        document.getElementById("canvas").onclick = function(e) {
-            e = e ? e : window.event;
-            var rect = this.getBoundingClientRect();
-            route.addAt([e.clientX - rect.left, e.clientY - rect.top]);
-        }
-
-        document.getElementById("canvas").ondblclick = function(e) {
-            route.setSections();
-        }
-    }
-
 
     /**
      * Compute coordinates of one point in the canvas from boundaries of points to be drawn
@@ -207,37 +133,149 @@
         return xy2;
     }
 
-    function draw_triangulation() {
-        document.getElementById("container").style = "display:none;";
-        var canvas = document.getElementById("canvas"),
-            ctx = canvas.getContext("2d");
-            ctx.lineWidth = 0.3;
-            ctx.strokeStyle = "#aaaaaa";
+	/*
+	 * Objet gérant la triangulation
+	 */
+	function Canal() {
+		this.boundaries = [{'min':Infinity,'max':-Infinity},{'min':Infinity,'max':-Infinity},{'min':Infinity,'max':-Infinity}]; /// Boundaries of the xyz points
+		this.vertices = []; /// Store xyz points
+		this.triangles = []; /// Store Delaunay triangle output
+		this.edgeMaxLength = 500; /// Maximum length of an edge of a triangle
 
-        var v2 = Array(vertices.length);
-        for(var i = 0; i < vertices.length; i++) {
-            v2[i] = coords2Canvas(canvas, boundaries, vertices[i]);
-        }
+		/**
+		 * Compute the segments from Delaunay triangulation outputs
+		 */
+		this.triangles2Segments = function() {
+			var s = [];
+			for(var i=this.triangles.length; i;) {
+				i--;s.push([this.triangles[i],this.triangles[i-1]]);
+				i--;s.push([this.triangles[i],this.triangles[i-1]]);
+				i--;s.push([this.triangles[i],this.triangles[i+2]]);
+			}
+			var s2 = [];
+			for(var i=0; i < s.length; i++) {
+				var bDuplicate = false;
+				for(var j=0; j< s2.length; j++) {
+					if((s[i][0] == s2[j][0] & s[i][1] == s2[j][1]) | (s[i][1] == s2[j][0] & s[i][0] == s2[j][1])) {
+						bDuplicate = true;
+						break;
+					}
+				}
+				if(!bDuplicate) {
+					s2.push(s[i]);
+				}
+			}
+			return s2;
+		}
 
-        for(var i = triangles.length; i; ) {
-            var xy;
-            ctx.beginPath();
-            --i; ctx.moveTo(v2[triangles[i]][0], v2[triangles[i]][1]);
-            --i; ctx.lineTo(v2[triangles[i]][0], v2[triangles[i]][1]);
-            --i; ctx.lineTo(v2[triangles[i]][0], v2[triangles[i]][1]);
-            ctx.closePath();
-            ctx.stroke();
-        }
+		this.edgeLength = function(i,j) {
+			var l = topo.getLength2D(this.vertices[this.triangles[i]],this.vertices[this.triangles[j]]);
+			return l;
+		}
 
-        for(var i=0; i<vertices.length; i++) {
-            // Draw point
-            ctx.beginPath();
-            ctx.arc(v2[i][0], v2[i][1], 2, 0, Math.PI * 2, true);
-            ctx.closePath();
-            ctx.fillStyle = "#000000";
-            ctx.fill();
+		/**
+		 * Remove triangles with edge exceeding edgeMaxLength
+		 */
+		this.reduceTriangles = function() {
+			var newTriangles = [];
+			for(var i=0; i<this.triangles.length; i=i+3) {
+				var bKeep = true;
+				if(this.edgeLength(i, i+1) > this.edgeMaxLength) bKeep = false;
+				if(this.edgeLength(i+1, i+2) > this.edgeMaxLength) bKeep = false;
+				if(this.edgeLength(i+2, i) > this.edgeMaxLength) bKeep = false;
+
+				if(bKeep) {
+					for(var j= 0; j<3; j++) {
+						newTriangles.push(this.triangles[i+j])
+					}
+				}
+			}
+			this.triangles = newTriangles;
+		}
+
+		this.triangulation = function() {
+			var allTextLines = txtContent.split(/\r\n|\n/);
+			for(i=0; i< allTextLines.length; i++) {
+				if(allTextLines[i].substr(0,1)!="%" && allTextLines[i].trim()!="") {
+					var xyz = allTextLines[i].split(/\t|;|,/);
+					for(j=0; j<3; j++) {
+						xyz[j] = parseFloat(xyz[j]);
+						this.boundaries[j].min = Math.min(this.boundaries[j].min,xyz[j]);
+						this.boundaries[j].max = Math.max(this.boundaries[j].max,xyz[j]);
+					}
+					this.vertices.push(xyz);
+				}
+			}
+			console.time("triangulate");
+			this.triangles = Delaunay.triangulate(this.vertices);
+			this.reduceTriangles();
+			console.timeEnd("triangulate");
+
+			console.time("draw_triangulation");
+			this.draw_triangulation();
+			console.timeEnd("draw_triangulation");
+
+			alert("Draw the canal's route by clicking on the screen\nUse double-click for ending the route.");
+
+			document.getElementById("canvas").onclick = function(e) {
+				e = e ? e : window.event;
+				var rect = this.getBoundingClientRect();
+				route.addAt([e.clientX - rect.left, e.clientY - rect.top]);
+			}
+
+			document.getElementById("canvas").ondblclick = function(e) {
+				route.setSections();
+			}
+		}
+
+		this.draw_triangulation = function() {
+			document.getElementById("container").style = "display:none;";
+			var canvas = document.getElementById("canvas"),
+				ctx = canvas.getContext("2d");
+				ctx.lineWidth = 0.3;
+				ctx.strokeStyle = "#aaaaaa";
+
+			var v2 = Array(this.vertices.length);
+			for(var i = 0; i < this.vertices.length; i++) {
+				v2[i] = coords2Canvas(canvas, this.boundaries, this.vertices[i]);
+			}
+
+			for(var i = this.triangles.length; i; ) {
+				var xy;
+				ctx.beginPath();
+				--i; ctx.moveTo(v2[this.triangles[i]][0], v2[this.triangles[i]][1]);
+				--i; ctx.lineTo(v2[this.triangles[i]][0], v2[this.triangles[i]][1]);
+				--i; ctx.lineTo(v2[this.triangles[i]][0], v2[this.triangles[i]][1]);
+				ctx.closePath();
+				ctx.stroke();
+			}
+
+			for(var i=0; i<this.vertices.length; i++) {
+				// Draw point
+				ctx.beginPath();
+				ctx.arc(v2[i][0], v2[i][1], 2, 0, Math.PI * 2, true);
+				ctx.closePath();
+				ctx.fillStyle = "#000000";
+				ctx.fill();
+			}
+		}
+	}
+
+	var topo = {
+		/**
+		 * Distance between two 2D points
+		 */
+		getLength2D : function(p1,p2) {
+            return Math.sqrt(Math.pow(p1[0]-p2[0],2)+Math.pow(p1[1]-p2[1],2));
+        },
+
+        /**
+         * Give the angle of a 2D segment from 2 points from the first axis
+         */
+        getTheta : function(p1,p2) {
+            return Math.atan2(p2[1]-p1[1],p2[0]-p1[0]);
         }
-    }
+	}
 
     function Route() {
         /**
@@ -245,7 +283,7 @@
          * - xy: coordinates of the point (geographic reference)
          * - pK: chainage of the point
          */
-        this.vertices = [];
+        this.nodes = [];
         /// Space step for sections
         this.spaceX = 0;
         /// Section widths
@@ -260,7 +298,7 @@
         /// Total length of the route
         this.routeLength = 0;
 
-        this.getDist = function(p1,p2) {
+        topo.getLength2D = function(p1,p2) {
             return Math.sqrt(Math.pow(p1[0]-p2[0],2)+Math.pow(p1[1]-p2[1],2));
         }
 
@@ -270,21 +308,17 @@
             var axeLength = [canvas.scrollWidth , canvas.scrollHeight];
             xy[1] = axeLength[1] - xy[1]; // bottom and top are inverted in the canvas
             for(var i=0; i<2; i++) {
-                xy2[i] = (xy[i]) / axeLength[i] * (boundaries[i].max - boundaries[i].min) + boundaries[i].min;
+                xy2[i] = (xy[i]) / axeLength[i] * (canal.boundaries[i].max - canal.boundaries[i].min) + canal.boundaries[i].min;
             }
             var pK = 0;
-            if(this.vertices.length > 0) {
-                pK = this.vertices[this.vertices.length-1].pK;
-                pK += this.getDist(this.vertices[this.vertices.length-1].xy,xy2);
+            if(this.nodes.length > 0) {
+                pK = this.nodes[this.nodes.length-1].pK;
+                pK += topo.getLength2D(this.nodes[this.nodes.length-1].xy,xy2);
             }
 
-            this.vertices.push({'xy':xy2,'pK':pK});
+            this.nodes.push({'xy':xy2,'pK':pK});
             this.render();
         };
-
-        this.getTheta = function(p1,p2) {
-            return Math.atan2(p2[1]-p1[1],p2[0]-p1[0]);
-        }
 
         this.render = function() {
             console.time('render');
@@ -295,12 +329,12 @@
             var ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, Number(canvas.width), Number(canvas.height));
 
-            draw_triangulation();
+            canal.draw_triangulation();
 
             // Draw route
             var vertex_last = [];
-            for(var i=0; i<this.vertices.length; i++) {
-                var vertex = coords2Canvas(canvas,boundaries,this.vertices[i].xy);
+            for(var i=0; i<this.nodes.length; i++) {
+                var vertex = coords2Canvas(canvas,canal.boundaries,this.nodes[i].xy);
 
                 // Draw edge
                 if(i > 0) {
@@ -322,7 +356,7 @@
 
                 ctx.font = "12px Sans";
                 ctx.fillStyle = "black";
-                ctx.fillText("pK="+this.vertices[i].pK.toFixed(3),vertex[0]+5, vertex[1]);
+                ctx.fillText("pK="+this.nodes[i].pK.toFixed(3),vertex[0]+5, vertex[1]);
 
                 vertex_last[0] = vertex[0];
                 vertex_last[1] = vertex[1];
@@ -334,9 +368,9 @@
                 var xy;
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                xy = coords2Canvas(canvas,boundaries,sn.Lxy)
+                xy = coords2Canvas(canvas,canal.boundaries,sn.Lxy)
                 ctx.moveTo(xy[0], xy[1]);
-                xy = coords2Canvas(canvas,boundaries,sn.Rxy)
+                xy = coords2Canvas(canvas,canal.boundaries,sn.Rxy)
                 ctx.lineTo(xy[0], xy[1]);
                 ctx.closePath();
                 ctx.strokeStyle = "#ff0000";
@@ -351,7 +385,7 @@
         }
 
         this.setSections = function() {
-            this.routeLength = this.vertices[this.vertices.length-1].pK;
+            this.routeLength = this.nodes[this.nodes.length-1].pK;
             if(this.routeLength < 1000) {
                 this.spaceX = this.routeLength / 20;
             } else {
@@ -366,8 +400,8 @@
             var iSegment = 0;
             while(pK <= this.routeLength) {
                 // Compute coords of section's center
-                var theta = this.getTheta(this.vertices[iSegment].xy,this.vertices[iSegment+1].xy);
-                var xy = this.getXYfromPK(this.vertices[iSegment].xy,theta,pK-this.vertices[iSegment].pK);
+                var theta = topo.getTheta(this.nodes[iSegment].xy,this.nodes[iSegment+1].xy);
+                var xy = this.getXYfromPK(this.nodes[iSegment].xy,theta,pK-this.nodes[iSegment].pK);
                 // Compute section's edges coords
                 this.sections.push({"pK":pK,
                     "Lxy": this.getXYfromPK(xy,theta+Math.PI/2,this.sectionWidth/2),
@@ -377,7 +411,7 @@
                 if(pK==this.routeLength) break;
                 pK += this.spaceX;
                 pK = Math.min(pK,this.routeLength);
-                while(iSegment < this.vertices.length -1 & pK > this.vertices[iSegment+1].pK) {
+                while(iSegment < this.nodes.length -1 & pK > this.nodes[iSegment+1].pK) {
                     iSegment++;
                 }
             }
@@ -417,9 +451,9 @@
          * @param pInt 2D vertex of the point located on the same line
          */
         this.getProfilePointZ = function(s,pInt) {
-            var dTot = this.getDist(vertices[s[0]],vertices[s[1]]);
-            var dPart = this.getDist(vertices[s[0]],pInt);
-            return vertices[s[0]][2]+(vertices[s[1]][2]-vertices[s[0]][2])*dPart/dTot;
+            var dTot = topo.getLength2D(canal.vertices[s[0]],canal.vertices[s[1]]);
+            var dPart = topo.getLength2D(canal.vertices[s[0]],pInt);
+            return canal.vertices[s[0]][2]+(canal.vertices[s[1]][2]-canal.vertices[s[0]][2])*dPart/dTot;
         }
 
         this.renderSegments = function (s) {
@@ -443,7 +477,7 @@
         }
 
         this.computeProfils = function() {
-            var segments = triangles2Segments(triangles);
+            var segments = canal.triangles2Segments();
 			//var intervalRender = window.setInterval(this.renderSegments(s);, 500);
             for(var i=0; i< this.sections.length; i++) {
                 var section = this.sections[i];
@@ -452,8 +486,8 @@
                 // Selecting segments intersecting the section
                 var s = []; // the selected segments
                 for(var j=0; j<segments.length; j++) {
-                    var s_ab = this.getLineEquation(vertices[segments[j][0]],vertices[segments[j][1]]);
-                    if(this.doesLineIntersect(section.ab,vertices[segments[j][0]],vertices[segments[j][1]]) &
+                    var s_ab = this.getLineEquation(canal.vertices[segments[j][0]],canal.vertices[segments[j][1]]);
+                    if(this.doesLineIntersect(section.ab,canal.vertices[segments[j][0]],canal.vertices[segments[j][1]]) &
                         this.doesLineIntersect(s_ab,section.Lxy,section.Rxy)) {
                         // Intersection of 4 points checked
                         s.push(segments[j]);
@@ -473,14 +507,14 @@
                 for(var j=0; j<s.length; j++) {
                     // Intersection coordinates
                     // Source https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line
-                    var x3 = vertices[s[j][0]][0];
-                    var y3 = vertices[s[j][0]][1];
-                    var x4 = vertices[s[j][1]][0];
-                    var y4 = vertices[s[j][1]][1];
+                    var x3 = canal.vertices[s[j][0]][0];
+                    var y3 = canal.vertices[s[j][0]][1];
+                    var x4 = canal.vertices[s[j][1]][0];
+                    var y4 = canal.vertices[s[j][1]][1];
                     var pInt = [((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))/((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)),
                                 ((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4))/((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4))];
                     // Projection in section plan
-                    px[j] = this.getDist(section.Lxy,pInt); // For x : starting from left bank at x=0
+                    px[j] = topo.getLength2D(section.Lxy,pInt); // For x : starting from left bank at x=0
                     pz[j] = this.getProfilePointZ(s[j],pInt);
                 }
                 // Sorting profil by abscissa
@@ -493,7 +527,7 @@
 
         }
     }
-
+	var canal = new Canal();
     var route = new Route();
 
     // http://stackoverflow.com/questions/3730510/javascript-sort-array-and-return-an-array-of-indicies-that-indicates-the-positi
