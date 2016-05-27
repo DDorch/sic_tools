@@ -60,13 +60,13 @@ var topo = {
 
 
 	/**
-	 * Distance from a point to a line
+	 * Closest point on a line from a point
 	 * @param ab Line equation (y=ax+b)
 	 * @param p Point coordinates
 	 * @return Coordinate of closest point on the line
 	 * @see https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 	 */
-	getDistanceP2L : function (ab, p) {
+	getClosestP2L : function (ab, p) {
 		var a = ab[0];
 		var b = -1;
 		var c = ab[1];
