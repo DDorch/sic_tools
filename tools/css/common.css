@@ -1,0 +1,62 @@
+body { margin: 0; overflow: hidden;background-color: #d7e9fa;font: 1em sans-serif;}
+canvas { width: 100%; height: 100% }
+#container h1, .button, #help{
+	text-align: center;
+}
+form {
+	/* Just to center the form on the page */
+	margin: 0 auto;
+	width: 400px;
+	/* To see the outline of the form */
+	padding: 1em;
+	border: 1px solid #CCC;
+	border-radius: 1em;
+	background-color: aliceblue;
+}
+div {
+	margin-top: 1em;
+	margin-bottom: 1em;
+}
+input, textarea, label, button, #reach_list {
+	/* To make sure that all text fields have the same font settings
+	   By default, textareas have a monospace font */
+	font: 1em sans-serif;
+}
+label, button {
+	font-weight: bold;
+}
+input, textarea {
+	/* To give the same size to all text field */
+	width: 100%;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+
+	/* To harmonize the look & feel of text field border */
+	border: 1px solid #999;
+}
+textarea {
+	/* To properly align multiline text fields with their labels */
+	vertical-align: top;
+
+	/* To give enough room to type some text */
+	height: 10em;
+	width: 100%;
+
+	/* To allow users to resize any textarea vertically
+	   It does not work on all browsers */
+	resize: vertical;
+}
+
+button {
+	/* This extra margin represent roughly the same space as the space
+	   between the labels and their text fields */
+	margin-left: .5em;
+	width: 60%;
+}
+#div_export {
+	display: none;
+}
+#canvas {
+	width: 1024px;
+	height: 500px;
+}
