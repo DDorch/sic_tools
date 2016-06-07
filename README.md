@@ -11,8 +11,8 @@ Just unzip the repository to your harddisk and launch the html file in your favo
 
 #import_xyz.html : user manual
 
-This tool can achieve two targets from XYZ point series and a route manually drawn by the user on the screen:
-* creating section profiles from a triangulation of the XYZ points. The triangulation is done by the Delaunay method (thanks to https://github.com/ironwallaby/delaunay). Sections are created with a constant space step and a section width which can be configurated.
+This tool can achieve two goals. It uses XYZ point series and a route manually drawn by the user on the screen:
+* creating section profiles from a triangulation of the XYZ points. The triangulation is done by the Delaunay method (thanks to https://github.com/ironwallaby/delaunay). Sections are created with a constant space step and a section width which can be configured.
 * converting each XYZ coords into two values which are: the longitudinal abscissa along the route (the so-called "chainage" in irrigation canal conceptor's language) and the lateral abscissa on the section profile which contains the considered point.
 
 ## File format specifications
