@@ -6,10 +6,16 @@
 		<style>
 			body { margin: 0; overflow: hidden;}
 			canvas { width: 100%; height: 100% }
+			button {
+				/* This extra margin represent roughly the same space as the space
+				   between the labels and their text fields */
+				margin-left: .5em;
+				width: 60%;
+			}
 		</style>
 	</head>
 	<body>
-		
+
 		<div id="container">
 			<h1>Visualisation 3D de la géométrie d'un canal modélisé dans SIC²</h1>
 			<p>Pour visualiser une géométrie en 3 dimensions, générer un fichier contenant les coordonnées des profils des sections à l'aide de <a href="http://sic.g-eau.net/Exporter-les-profils-de-toutes-les">l'outil d'export des profils de section au format x,y,z</a>.</p>
@@ -34,7 +40,7 @@
 		<script src="js/Detector.js"></script>
 		<script src="js/stats.min.js"></script>
 		<script>
-		
+
 		if ( ! Detector.webgl ) {
 
 				Detector.addGetWebGLMessage();
@@ -49,28 +55,28 @@
 			var mesh;
 
 			var worldWidth = 128, worldDepth = 128;
-			
+
 
 			var clock = new THREE.Clock();
 
 			function readSingleFile(evt) {
 				//Retrieve the first (and only!) File from the FileList object
-				var f = evt.target.files[0]; 
+				var f = evt.target.files[0];
 
 				if (f) {
 					var r = new FileReader();
-					r.onload = function(e) { 
+					r.onload = function(e) {
 						txtContent = e.target.result;
 					}
 					r.readAsText(f);
-					
-				} else { 
+
+				} else {
 					alert("Failed to load file");
 				}
 			}
-			
+
 			document.getElementById('fileinput').addEventListener('change', readSingleFile, false);
-			
+
 
 			function read3DSicTxt(allText) {
 				var allTextLines = [];
@@ -89,10 +95,10 @@
 				var xmin = 1E12;
 				var x_ratio = parseFloat(document.getElementById('x_factor').value);
 				if(x_ratio <=0) x_ratio = 1;
-				
+
 				// Makes sure it's found the file.
 				allTextLines = allText.split(/\r\n|\n/);
-				
+
 				for(i=0; i< allTextLines.length; i++) {
 					if(allTextLines[i].substr(0,1)!="%" && allTextLines[i].trim()!="") {
 						xyz = allTextLines[i].split(/\t/);
@@ -114,9 +120,9 @@
 				var ydGrass = ymax + 10*(ymax-ymin);
 				var v3i,v3j; // Vector 3 for previous and current section
 				var disti,distj,disttot,iSn,ixi,ixj; // Distance between geometry points
-				
+
 				for(i=0; i<sections.length; i++) {
-					
+
 					// Centering section considering the bottom
 					var fonds=[]; // y positions of bottom points
 					var zmax_sect=-1E12;
@@ -141,10 +147,10 @@
 					for(j=0; j<sections[i].vertices.length; j++) {
 						sections[i].vertices[j].z -= yc;
 					}
-					
+
 					// Drawing section
 					scene.add(new THREE.Line(sections[i],mat_section));
-					
+
 					// Distance between geometry points
 					disti = [0];
 					disttot = 0;
@@ -157,23 +163,23 @@
 					for(j=1; j<disti.length; j++) {
 						disti[j] = disti[j] / disttot;
 					}
-					
+
 					if(i>0) {
 						// Drawing left bank
 						v3i = sections[i-1].vertices[0];
 						v3j = sections[i].vertices[0];
-						drawTriangle([v3i,v3j, 
+						drawTriangle([v3i,v3j,
 								new THREE.Vector3(v3i.x,v3i.y,ygGrass)],mat_grass);
 						drawTriangle([v3j,
-								new THREE.Vector3(v3i.x,v3i.y,ygGrass), 
+								new THREE.Vector3(v3i.x,v3i.y,ygGrass),
 								new THREE.Vector3(v3j.x,v3j.y,ygGrass)],mat_grass);
 						// Drawing right bank
 						v3i = sections[i-1].vertices[sections[i-1].vertices.length-1];
 						v3j = sections[i].vertices[sections[i].vertices.length-1];
-						drawTriangle([v3i,v3j, 
+						drawTriangle([v3i,v3j,
 								new THREE.Vector3(v3i.x,v3i.y,ydGrass)],mat_grass);
 						drawTriangle([v3j,
-								new THREE.Vector3(v3i.x,v3i.y,ydGrass), 
+								new THREE.Vector3(v3i.x,v3i.y,ydGrass),
 								new THREE.Vector3(v3j.x,v3j.y,ydGrass)],mat_grass);
 						// Drawing canal
 						ixi = 0;
@@ -209,20 +215,20 @@
 				}
 				return {x:xmin, y:ymin+(ymax-ymin)/2,z:zmax}; // Camera's position
 			}
-			
+
 			function drawTriangle(verticies,material) {
-				var triangleGeometry = new THREE.Geometry(); 
-				triangleGeometry.vertices = verticies; 
-				triangleGeometry.faces.push(new THREE.Face3(0, 1, 2)); 
+				var triangleGeometry = new THREE.Geometry();
+				triangleGeometry.vertices = verticies;
+				triangleGeometry.faces.push(new THREE.Face3(0, 1, 2));
 				var triangleMesh = new THREE.Mesh(triangleGeometry, material);
 				scene.add(triangleMesh);
 			}
-			
+
 			function init() {
-			
+
 				scene = new THREE.Scene();
 				var xyz = read3DSicTxt(txtContent);
-				
+
 				container = document.getElementById( 'container' );
 
 				camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 1000 );
@@ -261,9 +267,9 @@
 				container.appendChild( stats.domElement );*/
 
 				window.addEventListener( 'resize', onWindowResize, false );
-				
+
 			}
-			
+
 
 			function onWindowResize() {
 
@@ -293,7 +299,7 @@
 
 			}
 
-			
+
 		</script>
 	</body>
 </html>
