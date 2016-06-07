@@ -11,8 +11,9 @@ Just unzip the repository to your harddisk and launch the html file in your favo
 
 #import_xyz.html : user manual
 
-This tool allow to create sections profil from XYZ points and a route. XYZ points are triangulated by the Delaunay method (thanks to https://github.com/ironwallaby/delaunay). The user draw the route on the screen, 
-sections are created with a constant space step and profils are extracted.
+This tool can achieve two targets from XYZ point series and a route manually drawn by the user on the screen:
+* creating section profiles from a triangulation of the XYZ points. The triangulation is done by the Delaunay method (thanks to https://github.com/ironwallaby/delaunay). Sections are created with a constant space step and a section width which can be configurated.
+* converting each XYZ coords into two values which are: the longitudinal abscissa along the route (the so-called "chainage" in irrigation canal conceptor's language) and the lateral abscissa on the section profile which contains the considered point.
 
 ## File format specifications
 
@@ -24,14 +25,6 @@ The ASCII file produce by the tool corresponds to the format used by SIC² for i
 * Launch import_xyz.html in a browser
 * Choose the file to import
 * Draw the route of the canal from upstream to downstream on the map, by clicking for each direction change (Notice that the nodes created here avec not the same definition of the nodes used in SIC² which are used for delimitating the reaches)
-* Stop the draw with a double-click
-* Copy and paste the text at the bottom of the window into SIC² 
+* Click on the button of the tool to use: "Export to SIC²" for the triagulation; "Convert to pK coords" for the coords conversion
+* Copy and paste the text generated in the dialog window to SIC² or you favorite spreadsheet 
 
-## Configuration of the tool
-
-The user interface for configuring the tool is still in developpment and is not available for the moment.
-
-However, some parameters can be tuned by modifying the source code: 
-* Space step between sections: Modify value of `this.spaceX` in line 390 or 392 depending of the length of the route.
-* Section Width (The width on which the tools search intersection between a section and triangle edges): Modify value of `this.spaceX`  in line 394.
-* Edge maximum length (For removing triangle with edge exceeding a maximum value): Modify value of `this.edgeMaxLength` in line 143
