@@ -19,7 +19,14 @@ This tool can achieve two goals. It uses XYZ point series and a route manually d
 
 The imported file should be in ASCII format with 3 columns (X,Y,Z) and no header. Column separator may be tabs, commas or semicolons.
 
-The ASCII file produce by the tool corresponds to the format used by SIC² for importing geometry in one reach (See: http://sic.g-eau.net/import-sections-and-cross-profiles?lang=en).
+### Export for SIC² tool
+
+The ASCII file produced by the tool corresponds to the format used by SIC² for importing geometry in one reach (See: http://sic.g-eau.net/import-sections-and-cross-profiles?lang=en).
+
+### Convert to pK coords tool
+
+The ASCII file can be imported into LibreOffice or Excel by copy and paste. It gives to the user the original XYZ coords of each point completed with longitudinal abscissa and lateral abscissa (negative value for left side and positive value for right side compared to the position of the route).
+
 
 ## Quick start
 * Launch import_xyz.html in a browser
