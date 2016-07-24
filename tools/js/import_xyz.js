@@ -30,33 +30,53 @@ function readSingleFile(evt) {
 }
 
 
-/**
- * Compute coordinates of one point in the canvas from boundaries of points to be drawn
- * @param canvas canvas object with properties width and height
- * @param boundaries array of dim 2 (1 for each 2 axes x and y) with properties min and max
- * @param xy array of dim 2 with respectively coordinates x and y of the point to compute
- * @author David Dorchies
- * @date 20/04/2016
- */
-function coords2Canvas(canvas, boundaries, xy) {
-	var axeLength = [canvas.width, canvas.height];
-	var xy2 = Array(2);
-	for(var i=0; i<2; i++) {
-		xy2[i] = (xy[i] - boundaries[i].min) * axeLength[i] / (boundaries[i].max - boundaries[i].min);
-	}
-	// bottom and top are inverted for the canvas
-	xy2[1] = axeLength[1] - xy2[1];
-	return xy2;
-}
-
-
 /*
  * Objet gérant la triangulation
  */
 function Canal() {
 	this.boundaries = [{'min':Infinity,'max':-Infinity},{'min':Infinity,'max':-Infinity},{'min':Infinity,'max':-Infinity}]; /// Boundaries of the xyz points
+    this.c2cRatio = 0.; /// Ratio for converting Canvas to Coords (for keeping aspect ratio)
+    this.c2cCenterGap = []; /// Gap for centering the figure
 	this.vertices = []; /// Store xyz points
 	this.triangles = []; /// Store Delaunay triangle output
+
+    /**
+    * Compute parameters mandatory for coordinates conversion
+    * @param canvas canvas object with properties width and height
+    * @author David Dorchies
+    * @date 24/07/2016
+    */
+    this.calcC2Cparameters = function (canvas) {
+        // Ratio conversion between original coords system and canvas coords
+        this.c2cRatio = Math.max(this.boundaries[0].max - this.boundaries[0].min,this.boundaries[1].max - this.boundaries[1].min);
+        // Gap for centering the figure
+        var axeLength = [canvas.width, canvas.height];
+        for(var i = 0; i < 2; i++) {
+            this.c2cCenterGap[i] = (axeLength[i] - (this.boundaries[i].max - this.boundaries[i].min) * axeLength[i] / this.c2cRatio) / 2;
+        }
+    }
+
+
+    /**
+     * Compute coordinates of one point in the canvas from boundaries of points to be drawn
+     * @param canvas canvas object with properties width and height
+     * @param boundaries array of dim 2 (1 for each 2 axes x and y) with properties min and max
+     * @param xy array of dim 2 with respectively coordinates x and y of the point to compute
+     * @author David Dorchies
+     * @date 20/04/2016
+     */
+    this.coords2Canvas = function(canvas, xy) {
+        var axeLength = [canvas.width, canvas.height];
+        var xy2 = Array(2);
+
+        for(var i=0; i<2; i++) {
+            xy2[i] = (xy[i] - this.boundaries[i].min) * axeLength[i] / this.c2cRatio + this.c2cCenterGap[i];
+        }
+        // bottom and top are inverted for the canvas
+        xy2[1] = axeLength[1] - xy2[1];
+        return xy2;
+    }
+
 
 	/**
 	 * Compute the segments from Delaunay triangulation outputs
@@ -168,9 +188,10 @@ function Canal() {
 			ctx.lineWidth = 0.3;
 			ctx.strokeStyle = "#aaaaaa";
 
+        this.calcC2Cparameters(canvas);
 		var v2 = Array(this.vertices.length);
 		for(var i = 0; i < this.vertices.length; i++) {
-			v2[i] = coords2Canvas(canvas, this.boundaries, this.vertices[i]);
+			v2[i] = this.coords2Canvas(canvas, this.vertices[i]);
 		}
 
 		for(var i = this.triangles.length; i; ) {
@@ -233,7 +254,7 @@ function Route() {
 		var axeLength = [canvas.scrollWidth , canvas.scrollHeight];
 		xy[1] = axeLength[1] - xy[1]; // bottom and top are inverted in the canvas
 		for(var i=0; i<2; i++) {
-			xy2[i] = (xy[i]) / axeLength[i] * (canal.boundaries[i].max - canal.boundaries[i].min) + canal.boundaries[i].min;
+			xy2[i] = (xy[i]-canal.c2cCenterGap[i]) / axeLength[i] * (canal.c2cRatio) + canal.boundaries[i].min;
 		}
 		var pK = 0;
 		if(this.nodes.length > 0) {
@@ -258,7 +279,7 @@ function Route() {
 		// Draw route
 		var vertex_last = [];
 		for(var i=0; i<this.nodes.length; i++) {
-			var vertex = coords2Canvas(canvas,canal.boundaries,this.nodes[i].xy);
+			var vertex = canal.coords2Canvas(canvas,this.nodes[i].xy);
 
 			// Draw edge
 			if(i > 0) {
@@ -292,9 +313,9 @@ function Route() {
 			var xy;
 			ctx.lineWidth = 1;
 			ctx.beginPath();
-			xy = coords2Canvas(canvas,canal.boundaries,sn.Lxy)
+			xy = canal.coords2Canvas(canvas,sn.Lxy)
 			ctx.moveTo(xy[0], xy[1]);
-			xy = coords2Canvas(canvas,canal.boundaries,sn.Rxy)
+			xy = canal.coords2Canvas(canvas,sn.Rxy)
 			ctx.lineTo(xy[0], xy[1]);
 			ctx.closePath();
 			ctx.strokeStyle = "#ff0000";
@@ -362,9 +383,9 @@ function Route() {
 		for(var i=0; i<s.length; i++) {
 			ctx.lineWidth = 2;
 			ctx.beginPath();
-			xy = coords2Canvas(canvas,boundaries,vertices[s[i][0]])
+			xy = canal.coords2Canvas(canvas,vertices[s[i][0]])
 			ctx.moveTo(xy[0], xy[1]);
-			xy = coords2Canvas(canvas,boundaries,vertices[s[i][1]])
+			xy = canal.coords2Canvas(canvas,vertices[s[i][1]])
 			ctx.lineTo(xy[0], xy[1]);
 			ctx.closePath();
 			ctx.strokeStyle = "#00ff00";
