@@ -2,16 +2,6 @@
  * Scripts for generating profile section from xyz points
  */
 
-/// Content of the text file with xyz points
-$.txtContent = new Object();
-
-/// Configuration parameters for profile section generation
-$.expCfg = new Object();
-$.expCfg = {
-		sectionSpaceStep : -1,
-		sectionWidth : -1,
-		edgeMaxLength : -1
-};
 
 
 function readSingleFile(evt) {
@@ -442,8 +432,6 @@ function Route() {
 	}
 }
 
-var canal = new Canal();
-var route = new Route();
 
 // http://stackoverflow.com/questions/3730510/javascript-sort-array-and-return-an-array-of-indicies-that-indicates-the-positi
 function getIndexesOfSortedArray(toSort) {

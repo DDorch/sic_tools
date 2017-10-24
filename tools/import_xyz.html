@@ -10,7 +10,7 @@
 	<link rel="stylesheet" href="js/jquery-ui-1.11.4/themes/smoothness/theme.css">
 	<script type="text/javascript" src="js/topo.js"></script>
 	<script type="text/javascript" src="js/delaunay.js"></script>
-	<script src="js/jquery-2.2.4.min.js"></script>
+	<script type="text/javascript" src="js/jquery-2.2.4.min.js" onload="window.$ = window.jQuery = module.exports;"></script>
 	<script src="js/jquery-ui-1.11.4/jquery-ui.min.js"></script>
 	<script src="js/import_xyz_ui.js"></script>
 	<script src="js/import_xyz.js"></script>
@@ -58,6 +58,22 @@
 			<input id="spinner_edgeMaxLength" name="edgeMaxLength">
 		</p>
 	</div>
+	<script>
+		/// Content of the text file with xyz points
+		$.txtContent = new Object();
 
+		/// Configuration parameters for profile section generation
+		$.expCfg = new Object();
+		$.expCfg = {
+				sectionSpaceStep : -1,
+				sectionWidth : -1,
+				edgeMaxLength : -1
+		};
+		var canal = new Canal();
+		var route = new Route();
+		$( document ).ready(function() {$( "#toolbar" ).hide();});
+
+
+	</script>
 </body>
 </html>

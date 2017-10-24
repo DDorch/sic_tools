@@ -30,13 +30,20 @@ var topo = {
 
 	/**
 	 * Compute line equation from 2 points
+	 * @param p1[2] First point
+	 * @param p2[2] Second point
+	 * @param ab[2] Coefficients of line equation
 	 */
 	getLineEquation : function(p1,p2) {
 		var ab = Array(2);
-		ab[0] = (p1[1]-p2[1])/(p1[0]-p2[0]);
+		if(p1[0]!=p2[0]) {
+			ab[0] = (p1[1]-p2[1])/(p1[0]-p2[0]);
+		} else {
+			ab[0] = Infinity;
+		}
 		if(p1[0]!=0) {
 			ab[1] = p1[1] - (ab[0]*p1[0]);
-		} else if(sections[i].Rxy[0]!=0) {
+		} else if(p2[0]!=0) {
 			ab[1] = p2[1] - (ab[0]*p2[0]);
 		} else {
 			alert("Impossible to compute section profil");

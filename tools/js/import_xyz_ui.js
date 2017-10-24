@@ -78,5 +78,3 @@ $(function() {
 	});
 
 });
-
-$( document ).ready(function() {$( "#toolbar" ).hide();});
