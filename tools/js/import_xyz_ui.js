@@ -7,6 +7,11 @@ $(function() {
 	$('#fileinput').change(readSingleFile);
 	//document.getElementById('fileinput').addEventListener('change', readSingleFile, false);
 
+	$("#newfile").button()
+	.click(function() {
+		window.location.reload();
+	});
+
 	$( "#draw" ).button()
 	.click(function() {
 		dialog_reset.dialog( "open" );
@@ -39,7 +44,6 @@ $(function() {
 		modal: true,
 		buttons: {
 			"Delete route": function() {
-				canal.render();
 				route.start();
 				$( this ).dialog( "close" );
 			},

@@ -135,6 +135,12 @@ function Canal() {
 					this.boundaries[j].min = Math.min(this.boundaries[j].min,xyz[j]);
 					this.boundaries[j].max = Math.max(this.boundaries[j].max,xyz[j]);
 				}
+				for(j=0; j< this.vertices.length; j++) {
+					// Décalage des points identiques pour Delaunay
+					if(xyz[0]==this.vertices[j][0] && xyz[1]==this.vertices[j][1]) {
+						xyz[1] += 0.0001;
+					}
+				}
 				this.vertices.push(xyz);
 			}
 		}
@@ -199,9 +205,21 @@ function Canal() {
 			ctx.beginPath();
 			ctx.arc(v2[i][0], v2[i][1], 2, 0, Math.PI * 2, true);
 			ctx.closePath();
-			ctx.fillStyle = "#000000";
+			console.log(this.vertices[i]);
+			if(this.vertices[i][3]==undefined) {
+				ctx.fillStyle = "#000000";
+			} else {
+				ctx.fillStyle = "#"+this.vertices[i][3];
+			}
 			ctx.fill();
 		}
+	}
+
+	this.resetRoute = function() {
+		for(var i=0; i<this.vertices.length; i++) {
+			this.vertices[i][3]=undefined;
+		}
+		this.render();
 	}
 }
 
@@ -229,6 +247,7 @@ function Route() {
 	 * Start drawing route
 	 */
 	this.start = function() {
+		canal.resetRoute();
 		this.nodes = [];
 		this.sections = [];
 		$( "canvas" ).click(function(e) {
@@ -508,9 +527,16 @@ var xyz2pK = {
 				}
 			}
 			pKAE.push([pK,absc]);
+			if(pK != undefined) {
+				canal.vertices[i][3] = "298A08";
+			} else {
+				canal.vertices[i][3] = "B40404";
+			}
 		}
+		route.render();
 		xyz2pK.export(pKAE);
 	},
+
 	export : function(pKAE){
 		var s = "";
 		for(var i=0; i<pKAE.length; i++) {
