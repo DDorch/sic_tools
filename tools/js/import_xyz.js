@@ -478,6 +478,8 @@ var xyz2pK = {
 		for(var i=0; i<canal.vertices.length; i++) {
 			// For each point, calculation of distance for each segment of route
 			var abscMin = +Infinity;
+			var pK = undefined;
+			var absc = undefined;
 			for(var j=1; j<route.nodes.length; j++) {
 				// Calculation of line equation between point and closest point on the segment
 				var ab = topo.getLineEquation(route.nodes[j-1].xy,route.nodes[j].xy);
@@ -486,9 +488,9 @@ var xyz2pK = {
 				if(topo.doesLineIntersect(ab0,route.nodes[j-1].xy,route.nodes[j].xy)) {
 					// The point is orthogonal to the current segment
 					// pK calculation
-					var pK = route.nodes[j-1].pK + topo.getLength2D(route.nodes[j-1].xy,xy0);
+					pK = route.nodes[j-1].pK + topo.getLength2D(route.nodes[j-1].xy,xy0);
 					// Distance between the current segment and the point
-					var absc = topo.getLength2D(xy0,canal.vertices[i])
+					absc = topo.getLength2D(xy0,canal.vertices[i])
 					// Test with previous intersections found and store result
 					if(absc<abscMin) {
 						abscMin = absc;

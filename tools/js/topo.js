@@ -46,7 +46,8 @@ var topo = {
 		} else if(p2[0]!=0) {
 			ab[1] = p2[1] - (ab[0]*p2[0]);
 		} else {
-			alert("Impossible to compute section profil");
+			//alert("Impossible to compute line equation between ("+p1[0]+","+p1[1]+") and ("+p2[0]+","+p2[1]+")");
+			ab[1] = 0;
 		}
 		return ab;
 	},
