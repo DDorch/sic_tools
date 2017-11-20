@@ -29,6 +29,7 @@ function Canal() {
     this.c2cCenterGap = []; /// Gap for centering the figure
 	this.vertices = []; /// Store xyz points
 	this.triangles = []; /// Store Delaunay triangle output
+	this.menuSizeY = 20; /// Y Offset in the canvas for the menu
 
     /**
     * Compute parameters mandatory for coordinates conversion
@@ -56,14 +57,14 @@ function Canal() {
      * @date 20/04/2016
      */
     this.coords2Canvas = function(canvas, xy) {
-        var axeLength = [canvas.width, canvas.height];
+        var axeLength = [canvas.width, canvas.height - this.menuSizeY];
         var xy2 = Array(2);
 
         for(var i=0; i<2; i++) {
             xy2[i] = (xy[i] - this.boundaries[i].min) * axeLength[i] / this.c2cRatio + this.c2cCenterGap[i];
         }
         // bottom and top are inverted for the canvas
-        xy2[1] = axeLength[1] - xy2[1];
+        xy2[1] = axeLength[1] - xy2[1] + this.menuSizeY;
         return xy2;
     }
 
@@ -152,13 +153,8 @@ function Canal() {
 		}
 		// Triangulation
 		this.triangulate();
-
-		console.time("render");
 		this.render();
-		console.timeEnd("render");
-
 		alert("Draw the canal's route by clicking on the screen");
-
 		$( "#toolbar" ).show();
 		route.start();
 
@@ -175,6 +171,7 @@ function Canal() {
 	}
 
 	this.render = function() {
+		console.time("Canal.render");
 		document.getElementById("container").style = "display:none;";
 		var canvas = document.getElementById("canvas"),
 			ctx = canvas.getContext("2d");
@@ -205,7 +202,6 @@ function Canal() {
 			ctx.beginPath();
 			ctx.arc(v2[i][0], v2[i][1], 2, 0, Math.PI * 2, true);
 			ctx.closePath();
-			console.log(this.vertices[i]);
 			if(this.vertices[i][3]==undefined) {
 				ctx.fillStyle = "#000000";
 			} else {
@@ -213,6 +209,7 @@ function Canal() {
 			}
 			ctx.fill();
 		}
+		console.timeEnd("Canal.render");
 	}
 
 	this.resetRoute = function() {
@@ -261,8 +258,8 @@ function Route() {
 	this.addAt = function(xy) {
 		var canvas = document.getElementById('canvas');
 		var xy2 = Array(2);
-		var axeLength = [canvas.scrollWidth , canvas.scrollHeight];
-		xy[1] = axeLength[1] - xy[1]; // bottom and top are inverted in the canvas
+		var axeLength = [canvas.scrollWidth , canvas.scrollHeight - canal.menuSizeY];
+		xy[1] = axeLength[1] - xy[1] + canal.menuSizeY; // bottom and top are inverted in the canvas
 		for(var i=0; i<2; i++) {
 			xy2[i] = (xy[i]-canal.c2cCenterGap[i]) / axeLength[i] * (canal.c2cRatio) + canal.boundaries[i].min;
 		}
@@ -277,7 +274,7 @@ function Route() {
 	};
 
 	this.render = function() {
-		console.time('render');
+		console.time('Route.render');
 		var canvas = document.getElementById('canvas');
 		if (!canvas.getContext)
 		return;
@@ -331,7 +328,7 @@ function Route() {
 			ctx.strokeStyle = "#ff0000";
 			ctx.stroke();
 		}
-		console.timeEnd('render');
+		console.timeEnd('Route.render');
 	}
 
 
