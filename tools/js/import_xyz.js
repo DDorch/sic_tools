@@ -230,6 +230,7 @@ function Route() {
 	 */
 	this.start = function() {
 		this.nodes = [];
+		this.sections = [];
 		$( "canvas" ).click(function(e) {
 			e = e ? e : window.event;
 			var rect = this.getBoundingClientRect();
