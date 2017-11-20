@@ -9,7 +9,7 @@ The tools available are:
 
 Just unzip the repository to your harddisk and launch the html file in your favorite browser (the tools have been tested only with Mozilla Firefox).
 
-#import_xyz.html : user manual
+# import_xyz.html : user manual
 
 This tool can achieve two goals. It uses XYZ point series and a route manually drawn by the user on the screen:
 * creating section profiles from a triangulation of the XYZ points. The triangulation is done by the Delaunay method (thanks to https://github.com/ironwallaby/delaunay). Sections are created with a constant space step and a section width which can be configured.
