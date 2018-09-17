@@ -334,14 +334,14 @@ function Route() {
 
 	this.setSections = function() {
 		this.routeLength = this.nodes[this.nodes.length-1].pK;
-		if($.expCfg.sectionSpaceStep < 0) {
+		if($.expCfg.sectionSpaceStep <= 0) {
 			if(this.routeLength < 1000) {
 				$.expCfg.sectionSpaceStep = this.routeLength / 20;
 			} else {
 				$.expCfg.sectionSpaceStep = 100;
 			}
 		}
-		if($.expCfg.sectionWidth < 0) {
+		if($.expCfg.sectionWidth <= 0) {
 			$.expCfg.sectionWidth = $.expCfg.sectionSpaceStep * 5;
 		}
 	}
@@ -349,6 +349,7 @@ function Route() {
 	this.computeSections = function() {
 		var pK = 0;
 		var iSegment = 0;
+		this.sections = [];
 		while(pK <= this.routeLength) {
 			// Compute coords of section's center
 			var theta = topo.getTheta(this.nodes[iSegment].xy,this.nodes[iSegment+1].xy);
