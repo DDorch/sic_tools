@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Convert geometry raw data from Mike11 to SIC²</title>
+		<style>
+			body { margin: 0; overflow: hidden;background-color: #d7e9fa;font: 1em sans-serif;}
+			canvas { width: 100%; height: 100% }
+			#container h1, .button, #help{
+				text-align: center;
+			}
+			form {
+				/* Just to center the form on the page */
+				margin: 0 auto;
+				width: 400px;
+				/* To see the outline of the form */
+				padding: 1em;
+				border: 1px solid #CCC;
+				border-radius: 1em;
+				background-color: aliceblue;
+			}
+			div {
+				margin-top: 1em;
+				margin-bottom: 1em;
+			}
+			input, textarea, label, button, #reach_list {
+				/* To make sure that all text fields have the same font settings
+				   By default, textareas have a monospace font */
+				font: 1em sans-serif;
+			}
+			label, button {
+				font-weight: bold;
+			}
+			input, textarea {
+				/* To give the same size to all text field */
+				width: 100%;
+				-moz-box-sizing: border-box;
+				box-sizing: border-box;
+
+				/* To harmonize the look & feel of text field border */
+				border: 1px solid #999;
+			}
+			textarea {
+				/* To properly align multiline text fields with their labels */
+				vertical-align: top;
+
+				/* To give enough room to type some text */
+				height: 10em;
+				width: 100%;
+
+				/* To allow users to resize any textarea vertically
+				   It does not work on all browsers */
+				resize: vertical;
+			}
+
+			button {
+				/* This extra margin represent roughly the same space as the space
+				   between the labels and their text fields */
+				margin-left: .5em;
+				width: 60%;
+			}
+			#reach_list, #div_export {
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+		
+		<div id="container">
+			<h1>Convert geometry raw data from Mike11 to SIC²</h1>
+			<form>
+			<div>
+				<label for="fileinput">File to import :</label>
+				<input type="file" id="fileinput" />
+			</div>
+			<div class="button">
+				<button type="button" id="button_start" onclick="convert();">Run conversion</button>
+			</div>
+			<div id="reach_list"></div>
+			<div id="div_export">
+				<label for="myText">ASCII geometry text to import in SIC² (copy and paste it to EdiSIC):<label/>
+				<textarea id="myText"></textarea>
+			</div>
+			</form>
+			<div id="help">For help see: <a href="http://sic.g-eau.net/import-sections-and-cross-profiles?lang=en">How to import sections and cross profiles in text format in SIC²</a></div>
+		</div>
+		<div id="footer">
+			
+		</div>
+		
+		<script>
+		
+			var reaches = [];
+
+			function readSingleFile(evt) {
+				//Retrieve the first (and only!) File from the FileList object
+				var f = evt.target.files[0]; 
+
+				if (f) {
+					var r = new FileReader();
+					r.onload = function(e) { 
+						txtContent = e.target.result;
+					}
+					r.readAsText(f);
+					
+				} else { 
+					alert("Failed to load file");
+				}
+			}
+			
+			document.getElementById('fileinput').addEventListener('change', readSingleFile, false);
+
+			
+			
+			/**
+			 * Parse the imported file and print on the screen the generated ASCII file ready to be imported in SIC²
+			 * @param sReach Name of the reach to import
+			 * @author David Dorchies (david.dorchies at irstea.fr)
+			 * @date 18/04/2016
+			 */
+			function convert(sReach) {
+				var allTextLines = txtContent.split(/\r\n|\n/);
+				
+				/** iPhase is used to locate the line in the section description
+					- 0 : Waiting for 'VER01', first line of a section description
+					- 1 : Ready to read the name of the reach
+					- 2 : Ready to read the section chainage
+					- 3 : Waiting for 'PROFILE'
+					- 4 : Ready to read profile data until reading 
+				*/ 
+				var iPhase = 0;
+				var nbPts = 0; /// Number of points in section profile to read (fixed in 'PROFILE' line)
+				var sL = ''; /// Current line read
+				var iCurrentReach = -1; // reach id for the current section (first=0)
+				var iCurrentSection = -1; // reach id of current section
+				
+				for(i=0; i< allTextLines.length; i++) {
+					sL = allTextLines[i].trim();
+					switch(iPhase) {
+						case 0:
+							if(sL=="VER01") {
+								iPhase++;
+								iCurrentReach = -1;
+							}
+							break;
+						case 1:
+							for(j=0; j< reaches.length; j++) {
+								if(reaches[j].name == sL) {
+									iCurrentReach = j;
+								}
+							}
+							if(iCurrentReach < 0) {
+								// New reach
+								iCurrentReach=reaches.push({"name":sL,"scts":[]}) - 1;
+							}
+							iPhase++;
+							break;
+						case 2:
+							iCurrentSection = reaches[iCurrentReach].scts.push({"x":sL,"pts":[]}) - 1;
+							iPhase++;
+							break;
+						case 3:
+							if(sL.substr(0,7)=="PROFILE") {
+								nbPts = parseInt(sL.substr(-5).trim());
+								iPhase++;
+							}
+							break;
+						case 4:
+							var y,z;
+							y = sL.substr(0,10).trim();
+							z = sL.substr(10,10).trim();
+							if(reaches[iCurrentReach].scts[iCurrentSection].pts.push({"y":y,"z":z}) == nbPts) {
+								// Last point proceeded, preparation for next section
+								iPhase = 0;
+							}
+							break;
+					}
+				}
+				if(reaches.length > 0) {
+					sL = "<p>List of reaches found (click to display reach content):</p>\n	<ul>\n";
+					for(i=0; i<reaches.length; i++) {
+						sL += "	<li><a href=\"#\" onClick=\"sic_ascii(reaches["+i+"]);\">"+reaches[i].name+" ("+reaches[i].scts.length+" sections)</a></li>\n";
+					}
+					sL += "</ul>";
+				} else {
+					sL = "No reach found in the file.";
+				}
+				document.getElementById("reach_list").innerHTML = sL;
+				document.getElementById("reach_list").style = "display: block;";
+			}
+			
+			function sic_ascii(reach) {
+				var s = "";
+				for(i=0; i<reach.scts.length; i++) {
+					s += "x="+reach.scts[i].x+"$"+reach.scts[i].x+"\n";
+					for(j=0; j<reach.scts[i].pts.length; j++) {
+						s += reach.scts[i].pts[j].y + "\t" + reach.scts[i].pts[j].z + "\n";
+					}
+				}
+				document.getElementById("div_export").style = "display:block;";
+				document.getElementById("myText").value = s;
+				document.getElementById("myText").select();
+			}
+		</script>
+	</body>
+</html>
