@@ -536,12 +536,72 @@ var xyz2pK = {
 	},
 
 	export : function(pKAE){
-		var s = "";
+		var marginPK = $.expCfg.sectionPKSpaceStep;
+		var maxWidth = $.expCfg.cpMaxWidth;
+		var nbPointsMin = $.expCfg.sectionMinPoints;
+	
+		var list = [];
 		for(var i=0; i<pKAE.length; i++) {
-			s += canal.vertices[i][0]+"\t"+canal.vertices[i][1]+"\t"+canal.vertices[i][2]+"\t"+pKAE[i][0]+"\t"+pKAE[i][1]+"\n";
+			var xyzNum  = [
+				parseFloat(canal.vertices[i][0]),
+				parseFloat(canal.vertices[i][1]),
+				parseFloat(canal.vertices[i][2]),
+				parseFloat(pKAE[i][0]),
+				parseFloat(pKAE[i][1])
+			];
+			// Remove undefined pkX
+			if (xyzNum[3] !== undefined && ! isNaN(xyzNum[3])) {
+				list.push(xyzNum);
+			}
 		}
+		// Sort by pkX
+		list.sort((a, b) => {
+			return a[3] - b[3];
+		});
+
+		// Regroupement des points par section
+		var lastPK = null;
+		var sections = {};
+		var section = [];
+
+		for (var i = 0; i < list.length; i++) {
+			var line = list[i];
+			var point = [ line[3], line[4], line[2] ];
+			if (lastPK === null || line[3] > (lastPK + marginPK)) {
+				if(section.length >= nbPointsMin) {
+					// Storage of previous section
+					var sum = 0;
+					for(var j = 0; j < section.length; j++) {
+						sum += section[j][0];
+					}
+					var pkMean = (sum / section.length).toFixed(2);
+					console.log(`Storage section pk = ${pkMean} with ${section.length} points`);
+					section.sort((a, b) => {
+						return a[1] - b[1];
+					});
+					sections[pkMean] = section;
+				}
+				// New section
+				section = [];
+			}
+			// Add new point to current section (remove points too far from axis)
+			if (point[1] <= maxWidth) {
+				section.push(point);
+			}
+			lastPK = point[0];
+		}
+
+		var strings = [];
+		for (pk in sections) {
+			strings.push(`x=${pk}$${pk}$ $ $A`);
+			var s = sections[pk];
+			for (var i = 0; i < s.length; i++) {
+				strings.push(`${s[i][1].toFixed(14)}\t${s[i][2]}`);
+			}
+		}
+
 		dialog_export.dialog( "open" );
-		$( "#myText" ).val(s);
+		$( "#myText" ).val(strings.join("\n"));
 		$( "#myText" ).select();
 	}
 };

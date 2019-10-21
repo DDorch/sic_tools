@@ -28,7 +28,10 @@ $(function() {
 
 	$( "#convertpk" ).button()
 	.click(function() {
-		xyz2pK.convert();
+		spinner_pKspaceX.spinner("value", $.expCfg.sectionPKSpaceStep);
+		spinner_cpMaxWidth.spinner("value", $.expCfg.cpMaxWidth);
+		spinner_sectionMinPoints.spinner("value", $.expCfg.sectionMinPoints);
+		dialog_configuration_pk.dialog( "open" );
 	});
 
 	dialog_export = $( "#dialog-export" ).dialog({
@@ -74,6 +77,28 @@ $(function() {
 				route.render();
 				route.computeProfils();
 				sic_ascii(route.sections);
+			},
+			Cancel: function() {
+				$( this ).dialog( "close" );
+			}
+		}
+	});
+
+	var spinner_pKspaceX = $( "#spinner_pKspaceX" ).spinner({ step: 0.1 });
+	var spinner_cpMaxWidth = $( "#spinner_cpMaxWidth" ).spinner();
+	var spinner_sectionMinPoints = $( "#spinner_sectionMinPoints" ).spinner();
+	dialog_configuration_pk = $( "#dialog-configuration-pk" ).dialog({
+		autoOpen: false,
+		modal: true,
+		//width: 500,
+		buttons: {
+			"Generate section profiles": function() {
+				// Save new parameters
+				$.expCfg.sectionPKSpaceStep = spinner_pKspaceX.spinner("value");
+				$.expCfg.cpMaxWidth = spinner_cpMaxWidth.spinner("value");
+				$.expCfg.sectionMinPoints = spinner_sectionMinPoints.spinner("value");
+				$( this ).dialog( "close" );
+				xyz2pK.convert();
 			},
 			Cancel: function() {
 				$( this ).dialog( "close" );

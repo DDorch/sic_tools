@@ -22,7 +22,7 @@
 		<a id="newfile" href="#">Load a new file</a>
 		<a id="draw" href="#">Reset route</a>
 		<a id="exportsic" href="#">Export for SIC²</a>
-		<a id="convertpk" href="#">Convert to pK coords</a>
+		<a id="convertpk" href="#">Export pK coords for SIC²</a>
 
 	</div>
 	<div id="container">
@@ -59,6 +59,20 @@
 			<input id="spinner_edgeMaxLength" name="edgeMaxLength">
 		</p>
 	</div>
+	<div id="dialog-configuration-pk" title="Export pK coords for SIC²">
+		<p>
+			<label for="spinner_pKspaceX">Max length between points (m):</label>
+			<input id="spinner_pKspaceX" name="pKspaceX">
+		</p>
+		<p>
+			<label for="spinner_cpMaxWidth">Max width of cross profiles (m):</label>
+			<input id="spinner_cpMaxWidth" name="cpMaxWidth">
+		</p>
+		<p>
+			<label for="spinner_sectionMinPoints">Min number of points in section:</label>
+			<input id="spinner_sectionMinPoints" name="sectionMinPoints">
+		</p>
+	</div>
 	<script>
 		/// Content of the text file with xyz points
 		$.txtContent = new Object();
@@ -68,7 +82,10 @@
 		$.expCfg = {
 				sectionSpaceStep : -1,
 				sectionWidth : -1,
-				edgeMaxLength : -1
+				edgeMaxLength : -1,
+				sectionPKSpaceStep : 1,
+				cpMaxWidth: 10,
+				sectionMinPoints : 10
 		};
 		var canal = new Canal();
 		var route = new Route();
